@@ -30,3 +30,10 @@ This repository contains the Swin Transformer-based Faster RCNN implementation u
 ## Dataset
 
 This work leverages the dataset provided by the [NODE21 Grand Challenge](https://node21.grand-challenge.org/), which offers annotated nodules in chest X-rays for research into localization performance. Please cite the challenge if you publish work based on these annotations.
+
+## Evaluation Visuals
+
+![FROC curve](plots/froc.png)
+
+- The Free-response ROC (FROC) curve above summarizes sensitivity versus false positives per image for the validation split shown in the provided plots.
+- A standard ROC plot for the same run is also available at `plots/roc.png` if you want to inspect detection discrimination.
