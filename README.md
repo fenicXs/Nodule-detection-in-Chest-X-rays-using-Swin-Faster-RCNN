@@ -73,6 +73,11 @@ python visualize_preds.py \
 
 The repo targets the Node21 chest X-ray nodule set (COCO-style). Make sure your JSONs carry `images`, `annotations` (bbox `[x,y,w,h]`, `category_id=1`), and `file_name` paths relative to `--img-root`.
 
+## Pretrained checkpoint
+
+- Swin Faster R-CNN (trained 50 epochs on Node21) is available here: https://drive.google.com/file/d/1KP8QntckVtr9VY_KTVTb6BmFTQkoCG0R/view?usp=sharing  
+  Download `best.pth` and place it, for example, at `work_dirs/swin_fpn/best.pth`, then run `plot_eval.py` or `visualize_preds.py` as shown above.
+
 ## Tips
 - If early FROC stays low, reduce `box_score_thresh` during training (e.g., 0.05) in `model.py`, then tighten at inference.
 - For quick smoke tests, subsample COCO JSONs and run 1–3 epochs with `--batch-size 1 --workers 0`.
