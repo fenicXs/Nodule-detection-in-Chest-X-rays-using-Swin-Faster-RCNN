@@ -8,6 +8,9 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
+from pycocotools.coco import COCO
+from pycocotools.cocoeval import COCOeval
+
 from data import NoduleDataset, collate_fn
 from model import build_detector
 
@@ -115,12 +118,25 @@ def gather_predictions(model, loader, device):
     model.eval()
     preds: List[Dict[str, np.ndarray]] = []
     gts: List[np.ndarray] = []
+    coco_results = []
     for images, targets in loader:
         images = [img.to(device) for img in images]
         outputs = model(images)
         for out, tgt in zip(outputs, targets):
             preds.append({"boxes": out["boxes"].cpu().numpy(), "scores": out["scores"].cpu().numpy()})
             gts.append(tgt["boxes"].cpu().numpy())
+            img_id = int(tgt["image_id"].item())
+            for box, score in zip(out["boxes"].cpu().numpy(), out["scores"].cpu().numpy()):
+                x1, y1, x2, y2 = box.tolist()
+                coco_results.append(
+                    {
+                        "image_id": img_id,
+                        "category_id": 1,
+                        "bbox": [x1, y1, x2 - x1, y2 - y1],
+                        "score": float(score),
+                    }
+                )
+    return preds, gts, coco_results
     return preds, gts
 
 
@@ -177,7 +193,7 @@ def main():
     ds = NoduleDataset(args.ann, args.img_root, train=False)
     loader = DataLoader(ds, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, collate_fn=collate_fn)
 
-    preds, gts = gather_predictions(model, loader, device)
+    preds, gts, coco_results = gather_predictions(model, loader, device)
     fppi_targets = (0, 0.125, 0.25, 0.5, 1, 2)
     froc_metrics, fppi_curve, sens_curve = compute_froc_curve(preds, gts, fppi_targets=fppi_targets, iou_thr=args.iou_thr)
     auroc, fpr_curve, tpr_curve = image_roc_curve(preds, gts)
@@ -187,6 +203,22 @@ def main():
     plot_roc(fpr_curve, tpr_curve, out_dir / "roc.png")
 
     summary = {"auroc": auroc, **froc_metrics}
+
+    # COCO mAP at IoU 0.40 (single class)
+    coco = COCO(args.ann)
+    if len(coco_results) == 0:
+        summary["mAP40"] = 0.0
+    else:
+        coco_dt = coco.loadRes(coco_results)
+        coco_eval = COCOeval(coco, coco_dt, iouType="bbox")
+        coco_eval.params.iouThrs = np.array([0.40])
+        coco_eval.params.catIds = [1]
+        coco_eval.evaluate()
+        coco_eval.accumulate()
+        coco_eval.summarize()
+        # stats[0] is AP at IoU=0.5:0.95, but with single IoU it matches 0.40
+        summary["mAP40"] = float(coco_eval.stats[0])
+
     print(json.dumps(summary, indent=2))
     with open(out_dir / "metrics.json", "w") as f:
         json.dump(summary, f, indent=2)

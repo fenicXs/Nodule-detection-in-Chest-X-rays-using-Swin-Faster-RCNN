@@ -46,12 +46,15 @@ def build_detector(num_classes: int = 2, pretrained_backbone: bool = True) -> Fa
     )
     roi_pooler = MultiScaleRoIAlign(featmap_names=["0", "1", "2", "3", "pool"], output_size=7, sampling_ratio=2)
 
+    # Clamp detections per image and raise the score threshold to curb over-prediction.
     model = FasterRCNN(
         backbone,
         num_classes=num_classes,
         rpn_anchor_generator=anchor_generator,
         box_roi_pool=roi_pooler,
-        box_detections_per_img=200,
+        box_detections_per_img=5,    # tightened to reduce over-prediction
+        box_score_thresh=0.40,       # raised to keep only confident boxes
+        box_nms_thresh=0.4,          # keep as-is
         image_mean=[0.485, 0.456, 0.406],
         image_std=[0.229, 0.224, 0.225],
         min_size=1024,
